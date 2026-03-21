@@ -1,13 +1,38 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 	<head>
-		<title>Jomart</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<title> Jomart's Store</title>
+		<link rel="stylesheet" href="styles.css">
 	</head>
 	<body>
-		<center>
+		<header>
+			<h1>Welcome to Jomart</h1>
+		</header>
 
-			<h1>Jomart</h1>
-			<p>WELCOME to some shopping store!</p>
-		</center>
+		<section id="products">
+			<h2>Available Products</h2>
+			<div id="products-list">
+				<div class"product-item">
+					<h3>Product XYZ</h3>
+					<button>Add to Cart</button>
+				</div>
+			</div>
+		</section>
+
+		<section id="cart">
+			<h2>Cart</h2>
+			<ul id="cart-items">
+				<li>Product ZYX</li>
+
+			</ul>
+			<button id="checkout-bin">Checkout</button>
+		</section>
+
+		<div id="message"></div>
+
+		<script src="app.js"></script>
+
 	</body>
 </html>
