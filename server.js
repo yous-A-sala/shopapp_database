@@ -29,7 +29,55 @@ const server = http.createServer(async (req, res) => {
 			console.error(err);
 			sendJSON(res, { error: 'Products Error' }, 500);
 		}
-	} else {
+	} else if (req.method === 'POST' && req.url === '/order'){
+		let body = '';
+
+		req.on('data', chunk => {
+			body += chunk.toString();
+		});
+
+		req.on('end', async() => {
+			const client = await pool.connect();
+			try {
+				const data = JSON.parse(body);
+				const { product_id, quantity } = data;
+
+				await client.query('BEGIN');
+
+				// row locking
+				const result = await client.query(
+					'SELECT stock FROM product WHERE product_id = $1 FOR UPDATE',
+					[product_id]
+				);
+
+				if (result.rows.length === 0) {
+					throw new Error('Product not found');
+				}
+
+				const stock = result.rows[0].stock;
+
+				if (stock < quantity) {
+					throw new Error('Not enough stock');
+				}
+
+				await client.query(
+					'UPDATE product SET stock = stock - $1 WHERE product_id = $2',
+					[quantity, product_id]
+				);
+
+				await client.query('COMMIT');
+				sendJSON(res, { success: true });
+
+			} catch (err) {
+				await client.query('ROLLBACK');
+				console.error(err);
+				sendJSON(res, { error: err.message }, 400);
+			} finally {
+				client.release(); // releases 'client' used for transaction
+			}
+		});
+	}
+	else {
 		res.writeHead(404, { 'Content-Type': 'text/plain' });
 		res.end('Not found');
 	}
