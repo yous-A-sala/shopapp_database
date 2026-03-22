@@ -1,12 +1,15 @@
 const productList = document.getElementById("product-list");
 const cartList = document.getElementById("cart-items");
 const message = document.getElementById("message");
+const productCounter = {};
 
 // load products
 async function loadProducts(){
 	try{
 		const res = await fetch("http://localhost:1024/products");
 		const products = await res.json();
+
+		productList.innerHTML = ""; // Clears items when reloading
 
 		products.forEach(product => {
 			const div = document.createElement("div");
@@ -37,9 +40,12 @@ async function addToCart(product){
 		const data = await res.json();
 
 		if (data.success) {
-			const li = document.createElement("li");
-			li.textContent = `${product.name} - Quantity: ${quantity}`;
-			cartList.appendChild(li);
+			if (!productCounter[product.product_id]) {
+				productCounter[product.product_id] = { name : product.name, quantity : 0 };
+			}
+			productCounter[product.product_id].quantity += quantity;
+
+			updateCartDisplay();
 			showMessage("Added to cart");
 		}  else {
 			showMessage(data.error);
@@ -50,6 +56,16 @@ async function addToCart(product){
 	}
 }
 
+function updateCartDisplay() {
+	cartList.innerHTML = ""; // clear
+	for (const id in productCounter){
+		const item = productCounter[id];
+		const li = document.createElement("li");
+		li.textContent = `${item.name} - Quantity: ${item.quantity}`;
+		cartList.appendChild(li);
+	}
+}
+
 function showMessage(msg) {
 	message.textContent = msg;
 	setTimeout(() => message.textContent = "", 3000);
@@ -57,6 +73,7 @@ function showMessage(msg) {
 
 document.getElementById("checkout-button").addEventListener("click", () => {
 	cartList.innerHTML = "";
+	for (const id in productCounter) productCounter[id].quantity = 0; // reset cart items
 	showMessage("Checked out");
 });
 
