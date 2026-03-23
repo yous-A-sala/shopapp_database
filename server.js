@@ -46,7 +46,7 @@ const server = http.createServer(async (req, res) => {
 				sendJSON(res, result.rows);
 			} catch(err) {
 				console.error(err);
-				sendJSON(res, { error: 'Products Error' }, 500);
+				sendJSON(res, { error: 'Products Error, maybe Postgres not running' }, 500);
 			}
 		} else {
 			res.writeHead(404);
@@ -60,12 +60,10 @@ const server = http.createServer(async (req, res) => {
 		});
 
 		req.on('end', async() => {
-			const client = await pool.connect();
 			try {
 				const data = JSON.parse(body);
 				const { product_id, quantity } = data;
 
-				await client.query('BEGIN');
 
 				// row locking
 				const result = await client.query(
@@ -76,8 +74,6 @@ const server = http.createServer(async (req, res) => {
 				if (result.rows.length === 0) {
 					throw new Error('Product not found');
 				}
-
-				const stock = result.rows[0].stock;
 
 				if (stock < quantity) {
 					throw new Error('Not enough stock');
@@ -131,7 +127,53 @@ const server = http.createServer(async (req, res) => {
 		} finally {
 			client.release();
 		}
-	} else {
+	} else if (req.method === 'POST' && req.url === '/checkout'){
+		let body = '';
+		req.on('data', chunk => body += chunk.toString());
+		req.on('end', async() => {
+			const client = await pool.connect();
+			try {
+				const data = JSON.parse(body);
+				const { items } = data;
+
+				if (!items || !items.length)
+					throw new Error("No items");
+
+				await client.query('BEGIN');
+
+				for (const item of items){
+					const res = await client.query(
+						'SELECT stock FROM product WHERE product_id=$1 FOR UPDATE',
+						[item.product_id]
+					);
+
+					if (!res.rows.length)
+						throw new Error(`Product ${item.product_id} not found`);
+
+					if (res.rows[0].stock < item.quantity)
+						throw new Error(`Not enough stock for product ${item.product_id}`);
+
+					await client.query(
+						'UPDATE product SET stock = stock - $1 WHERE product_id=$2',
+						[item.quantity, item.product_id]
+					);
+				}
+
+				await client.query('COMMIT');
+				sendJSON(res, { success : true });
+			} catch (err) {
+				await client.query('ROLLBACK');
+				console.error(err);
+				sendJSON(res, { error : err.message }, 400);
+			} finally {
+				client.release();
+			}
+		});
+	}
+
+
+
+	else {
 		res.writeHead(404, { 'Content-Type': 'text/plain' });
 		res.end('Not found');
 	}

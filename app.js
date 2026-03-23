@@ -3,6 +3,16 @@ const cartList = document.getElementById("cart-items");
 const message = document.getElementById("message");
 const productCounter = {};
 
+const ballColors = {
+	"Red Ball" : "red",
+	"Orange Ball" : "orange",
+	"Yellow Ball" : "yellow",
+	"Green Ball" : "green",
+	"Blue Ball" : "blue",
+	"Indigo Ball" : "indigo",
+	"Violet Ball" : "violet"
+};
+
 // load products
 async function loadProducts(){
 	try{
@@ -12,10 +22,16 @@ async function loadProducts(){
 		productList.innerHTML = ""; // Clears items when reloading
 
 		products.forEach(product => {
+			product.color = ballColors[product.name] || "gray";
 			const div = document.createElement("div");
 			div.className = "product-item";
+			div.dataset.id = product.product_id;
 			div.innerHTML = `
-				<h3>${product.name} ($${product.price})</h3>
+				<h3>
+					${product.name} ($${product.price})
+					<div class="ball" style="background-color: ${product.color};"></div>
+				</h3>
+				<p>Stock: <span class="stock-count">${product.stock}</span></p>
 				<button>Add to Cart</button>
 			`;
 			productList.appendChild(div);
@@ -27,33 +43,17 @@ async function loadProducts(){
 	}
 }
 
-async function addToCart(product){
+function addToCart(product){
 	const quantity = 1;
 
-	try{
-		const res = await fetch ("http://localhost:1024/order", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ product_id: product.product_id, quantity })
-		});
-
-		const data = await res.json();
-
-		if (data.success) {
-			if (!productCounter[product.product_id]) {
-				productCounter[product.product_id] = { name : product.name, quantity : 0 };
-			}
-			productCounter[product.product_id].quantity += quantity;
-
-			updateCartDisplay();
-			showMessage("Added to cart");
-		}  else {
-			showMessage(data.error);
-		}
-	} catch(err) {
-		console.error("Order failed:", err);
-		showMessage("Failed order");
+	if (!productCounter[product.product_id]) {
+		productCounter[product.product_id] = { name : product.name, quantity : 0 };
 	}
+
+	productCounter[product.product_id].quantity += quantity;
+
+	updateCartDisplay();
+	showMessage("Added to cart");
 }
 
 function updateCartDisplay() {
@@ -71,10 +71,57 @@ function showMessage(msg) {
 	setTimeout(() => message.textContent = "", 3000);
 }
 
-document.getElementById("checkout-button").addEventListener("click", () => {
-	cartList.innerHTML = "";
-	for (const id in productCounter) productCounter[id].quantity = 0; // reset cart items
-	showMessage("Checked out");
+// 
+document.getElementById("checkout-button").addEventListener("click", async() => {
+	try {
+		const items = [];
+
+		// loop over all items and add only ones with q over 0
+		for (const id in productCounter) {
+			if (productCounter[id].quantity > 0) {
+				items.push({
+					product_id : parseInt(id),
+					quantity : productCounter[id].quantity
+				});
+			}
+		}
+
+		// if empty return message and do nothing
+		if (items.length === 0){
+			showMessage("Cart's empty");
+			return;
+		}
+
+		// send POST request to server
+		const res = await fetch("http://localhost:1024/checkout", {
+			method : "POST",
+			headers : { "Content-Type" : "application/json" },
+			body : JSON.stringify({ items })
+		});
+
+		// convert from json string to object
+		const data = await res.json();
+
+		// if successful, clear cart afterwards
+		if (data.success){
+			cartList.innerHTML = "";
+
+			for (const id in productCounter){
+				const div = document.querySelector(`.product-item[data-id='${id}']`);
+				if (div) {
+					const stockSpan = div.querySelector(".stock-count");
+					stockSpan.textContent = parseInt(stockSpan.textContent) - productCounter[id].quantity;
+				}
+				productCounter[id].quantity = 0;
+			}
+			showMessage("Checkout successful");
+		} else {
+			showMessage(data.error);
+		}
+	} catch (err) {
+		console.error(err);
+		showMessage("Checkout failed");
+	}
 });
 
 document.getElementById('populate-products').addEventListener('click', async() => {

@@ -1,7 +1,23 @@
 .product-item {
 	border : 1px solid #ddd;
-	padding : 10px;
-	margin-bottom : 10px;
-	border-radius : 6px;
+	padding : 5px;
+	margin-bottom : 5px;
+	border-radius : 5px;
 	background-color: #fafafa;
+}
+
+.product-item:hover {
+    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.7);
+    transform: translateY(-2px);
+    transition: all 0.2s ease;
+}
+
+.ball {
+	width : 20px;
+	height : 20px;
+	border-radius : 50%;
+	display : inline-block;
+	margin-right : 8px;
+	vertical-align : middle;
+	border : 1px solid #ccc;
 }
